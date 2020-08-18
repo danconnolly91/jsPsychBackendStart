@@ -1,0 +1,252 @@
+<!doctype html>
+<html>
+  <head>
+      <title>Memory Study</title>
+      <script src="jspsych-6.1.0/jspsych.js"></script>
+      <script src="jspsych-6.1.0/plugins/jspsych-html-keyboard-response.js"></script>
+      <script src="jspsych-6.1.0/plugins/jspsych-image-keyboard-response.js"></script>
+      <script src="jspsych-6.1.0/plugins/jspsych-html-slider-response.js"></script>
+      <script src="jspsych-6.1.0/plugins/jspsych-html-button-response.js"></script>
+      <script src="jspsych-6.1.0/plugins/jspsych-survey-text.js"></script>
+      <link href="jspsych-6.1.0/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+  </head>
+  <body></body>
+  <script>
+    /* set up empty global variables */
+    var timeline = []
+    var reference_list = []
+    var total_points = 0
+
+    //import turk info
+    turkInfo = jsPsych.turk.turkInfo()
+    jsPsych.data.addProperties({subject: turkInfo.workerId, HIT: turkInfo.hitId, assignment: turkInfo.assignmentId});
+
+    //randomize into condition
+
+    var welcome = {
+      type: "html-keyboard-response",
+      stimulus: "Welcome to the experiment. Press any key to begin."
+    };
+    timeline.push(welcome);
+
+    var instructions = { //first page of instructions
+      type: "html-keyboard-response",
+      stimulus: "<p>In this experiment, you will learn several pairs of words. " +
+          "Later, you will be asked to remember the second word in each pair. " +
+          " After you learn each pair of words, we will " +
+          "ask you to judge how confident you are in whether you will remember the pair later.</p>" +
+          "<p>At the end of the session, you will be shown the first word in the pair and asked to " +
+          "fill in the second word. " +
+          "To motivate you to remember, you will earn 10 points for each word pair " +
+          "you correctly complete at the end of the session.</p> " +
+          "<p>In order to help you remember, we will give you the chance to &quot;buy&quot; " +
+          "each word pair after you learn it. " +
+          "If you &quot;buy&quot; a word pair, it will appear on a reference list " +
+          "that we will show you before the final memory test. " +
+          "This means that you will see the complete word pair again before " +
+          "you are asked to remember the second word in each pair for points. " +
+          "But if you buy the pair so that it appears on the reference list, you won't earn as many points "+
+          "for getting it right on the final test. We will tell you how many points each word pair " +
+          "will cost to add to the reference list before you decide to buy.</p>" +
+          "<p>Let's begin with a practice trial, where we will take you through " +
+          "a miniature version of the whole procedure.</p>" +
+          "<p>Press any key to begin.</p>"
+    };
+
+    timeline.push(instructions);
+
+    var practice_learning_instructions = { //instructions for first task in practice trial
+      type: "html-keyboard-response",
+      stimulus: "<p>On the next screen, you will see a pair of words. " +
+          "Take as long as you like to memorize the two words. " +
+          "After you memorize the words, we will ask you how confident you are " +
+          "that you will remember them later. We will also ask whether you would like to add them " +
+          "to the reference list."
+    }
+
+    timeline.push(practice_learning_instructions);
+
+    var word_pairs = [ //this is the list of word pairs
+      { pair: ['truck', 'tree']},
+      { pair: ['snake', 'bread']}
+    ]
+
+    var fixation = { //the fixation trial separates word pairs
+      type: 'html-keyboard-response',
+      stimulus: '<div style="font-size:60px;">+</div>',
+      choices: jsPsych.NO_KEYS,
+      trial_duration: 1000,
+      on_finish: function(data){
+        data.trial_label = 'fixation'
+      }
+    }
+
+    var display_pairs = { //this trial displays each of the word pairs
+      type: "html-keyboard-response",
+      stimulus: function(){
+        var pair = jsPsych.timelineVariable('pair', true)
+        return '<p></p><div style="font-size:40px;">' + pair[0] + " - " +
+          pair[1]  + '</div><p></p>'
+      },
+      prompt: "Press any key to continue.",
+      on_finish: function(data){
+        data.trial_label = 'display_pairs'
+      }
+    }
+
+    var display_cues = { //this trial displays each of the word pairs with the second word removed
+      type: "html-keyboard-response",
+      stimulus: function(){
+        var pair = jsPsych.timelineVariable('pair', true)
+        return '<p></p><div style="font-size:40px;">' + pair[0] + " - ???" + '</div><p></p>'
+      },
+      prompt: "Press any key to continue.",
+      on_finish: function(data){
+        data.trial_label = 'display_cues'
+      }
+    }
+
+    var conf_pair = { //this trial elicits a confidence judgement about the ability to recall a word pair, showing both words of the pair
+      type: 'html-slider-response',
+      stimulus: function(){
+        var pair = jsPsych.timelineVariable('pair', true)
+        return '<p></p><div style="font-size:40px;">' + pair[0] + " - " +
+          pair[1]  + '</div><p></p>'
+      },
+      labels: ['Definitely will not remember', 'Definitely will remember'],
+      prompt: "<p>How likely do you think it is that you will remember this pair in 10 minutes' time?</p>",
+      on_finish: function(data){
+        data.confidence = data.response;
+        data.trial_label = 'conf_pair'
+      }
+    }
+
+    var conf_cue = { //this trial elicits a confidence judgement about the ability to recall a word pair, showing just the first word
+      type: 'html-slider-response',
+      stimulus: function(){
+        var pair = jsPsych.timelineVariable('pair', true)
+        return '<p></p><div style="font-size:40px;">' + pair[0] + " - ???" + '</div><p></p>'
+      },
+      labels: ['Definitely will not remember', 'Definitely will remember'],
+      prompt: "<p>How likely do you think it is that you will remember this pair in 10 minutes' time?</p>",
+      on_finish: function(data){
+        data.confidence = data.response;
+        data.trial_label = 'conf_cue'
+      }
+    }
+
+    var wtp_pair = { //this trial elicits a willingness to pay to add a word to the reference list, showing both words
+      type: 'html-button-response',
+      stimulus: function(){
+        pair = jsPsych.timelineVariable('pair', true)
+        return '<p></p><div style="font-size:40px;">' + pair[0] + " - " +
+          pair[1]  + '</div><p></p>'
+      },
+      prompt: function(){ //randomly draw a point cost and ask if they'd like to add it to the reference list
+          offer = jsPsych.randomization.sampleWithReplacement([1, 2, 3, 4, 5, 6, 7, 8, 9], 1)[0]
+          value = 10 - offer
+          return "Would you like to add this pair to your reference list at a cost of " +
+          offer +
+          " points?</p> <p> If you do so, you will see both words before the final memory test, " +
+          "but you will only receive " + value + " points for getting the correct answer."
+        },
+      choices: ['Yes', 'No'],
+      on_finish: function(data){ //record the result of the WTP prompt
+        data.offer = offer //how much subject was offered to pay to add this pair to the list
+        data.wtp_cue = pair[0] //cue for this trial
+        data.wtp_response = pair[1] //response for this trial
+        data.trial_label = 'wtp_pair' //type of trial
+        if(data.button_pressed == 0){// 0 is the numeric code for yes, as it's the first entry in the choice list
+          data.paid = true // add a property of the data object that the subject paid for this pair
+          data.cost = offer //if they paid, record the offer as the cost
+          data.list_entry = pair[0] + " - " + pair[1] // store the value of the pair for display in the refernece list
+          reference_list.push(data.list_entry) //add the pair to the refernece list
+        } else {
+          data.paid = false // else they didn't pay and we enter a blank entry and charge them 0
+          data.cost = 0
+          data.list_entry = ''
+        }
+      }
+    }
+
+    var recall = { //this trial asks subjects to recall the word pair
+      type: 'survey-text',
+      preamble: function(){
+              pair = jsPsych.timelineVariable('pair', true)
+              return pair[0]
+            },
+      questions: [
+        {prompt: "What is the second word in this pair?", rows: 1, columns: 30}
+      ],
+      on_finish: function(data){
+        data.trial_label = 'recall' //record this as a recall trial
+        data.recall_cue = pair[0] //record the cue from this trial
+        wtp_data = jsPsych.data.get().filter({wtp_cue: data.recall_cue}).values() //from the cue from this trial, retrieve the wtp responses
+        data.cost_paid = wtp_data[0].cost //the cost paid in the WTP trial for this cue, either 0 or 1-9
+        data.response_sliced = data.responses.slice(7,-2) //slice out the text response
+        if(data.response_sliced == wtp_data[0].wtp_response){ //if they got it right:
+          data.correct = true //indicate correct
+          data.points_scored = 10 - wtp_data[0].cost //record the points as 10 - the cost paid in the WTP trial}
+        } else {
+          data.correct = false //indicate false
+          data.points_scored = 0 //i award you no points
+        }
+        total_points += data.points_scored //increment the total points
+      }
+    }
+
+    var learning_immediate = {
+      timeline: [fixation, display_pairs, conf_pair, wtp_pair],
+      timeline_variables: word_pairs,
+      randomize_order: true
+    }
+
+    timeline.push(learning_immediate)
+
+    var middle_immediate = {
+      timeline: [fixation, display_cues, conf_cue],
+      timeline_variables: word_pairs,
+      randomize_order: true
+    }
+
+    timeline.push(middle_immediate)
+
+    var show_reference_list = {
+      type: "html-keyboard-response",
+      stimulus: function(){
+          long_list= reference_list.join('<br>');
+          return "<p> Here is your reference list. <br> When you are done " +
+            "reviewing it, press any key to continue: <br>" + long_list
+      },
+      on_finish: function(data){
+        data.final_list = reference_list
+      }
+    }
+
+    timeline.push(show_reference_list)
+
+    var recall_immediate = {
+      timeline: [fixation, recall],
+      timeline_variables: word_pairs,
+      randomize_order: true
+    }
+
+    timeline.push(recall_immediate)
+
+    var final_point_summary = {
+      type: "html-keyboard-response",
+      stimulus: function(){
+          return "<p> Here is your final point total:" + total_points
+      }
+    }
+
+    timeline.push(final_point_summary)
+
+    jsPsych.init({
+      timeline: timeline,
+      on_finish: function() {
+        jsPsych.data.displayData();
+      }
+    })
+</script>
+</html>
